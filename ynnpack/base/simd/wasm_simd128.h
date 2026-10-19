@@ -529,6 +529,7 @@ YNN_ALWAYS_INLINE f32x4 floor_log2(f32x4 a) {
   const v128_t bias_256 = wasm_f32x4_splat(256.0f);
   const v128_t bias_383 = wasm_f32x4_splat(383.0f);
   v128_t res = wasm_f32x4_sub(wasm_v128_or(bias_256, exp), bias_383);
+  res = wasm_v128_and(res, wasm_i32x4_splat(~0x00008000));
   return f32x4{wasm_v128_bitselect(a.v, res, is_inf_or_nan)};
 }
 

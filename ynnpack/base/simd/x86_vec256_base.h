@@ -1340,8 +1340,7 @@ YNN_ALWAYS_INLINE f32x8 floor_log2(f32x8 a) {
   __m256i exp = _mm256_and_si256(_mm256_castps_si256(a.v), sign_and_exp_mask);
 
   __m256 infinity = _mm256_set1_ps(std::numeric_limits<float>::infinity());
-  __m256 is_inf_or_nan = _mm256_or_ps(_mm256_cmp_ps(a.v, infinity, _CMP_EQ_OQ),
-                                      _mm256_cmp_ps(a.v, a.v, _CMP_UNORD_Q));
+  __m256 is_inf_or_nan = _mm256_cmp_ps(a.v, infinity, _CMP_NLT_UQ);
 
   exp = _mm256_srai_epi32(exp, 8);
 
@@ -1349,6 +1348,7 @@ YNN_ALWAYS_INLINE f32x8 floor_log2(f32x8 a) {
   __m256 bias_383 = _mm256_set1_ps(383.0f);
   __m256 res =
       _mm256_sub_ps(_mm256_or_ps(bias_256, _mm256_castsi256_ps(exp)), bias_383);
+  res = _mm256_and_ps(res, _mm256_castsi256_ps(_mm256_set1_epi32(~0x00008000)));
   return f32x8{_mm256_blendv_ps(res, a.v, is_inf_or_nan)};
 }
 YNN_ALWAYS_INLINE f64x4 floor_log2(f64x4 a) {
@@ -1416,16 +1416,11 @@ YNN_ALWAYS_INLINE bf16x8 cast(f32x8 a, bfloat16) {
   return bf16x8{
       (__m128i)_mm_cvtne2ps_pbh(internal::hi(a.v), internal::lo(a.v))};
 #else
-  __m256 nan_mask = _mm256_cmp_ps(a.v, a.v, _CMP_UNORD_Q);
   __m256i u = _mm256_castps_si256(a.v);
   __m256i lsb =
       _mm256_and_si256(_mm256_srli_epi32(u, 16), _mm256_set1_epi32(1));
   __m256i bias = _mm256_add_epi32(_mm256_set1_epi32(0x7FFF), lsb);
-  __m256i res = _mm256_castps_si256(_mm256_blendv_ps(
-      _mm256_castsi256_ps(_mm256_add_epi32(u, bias)),
-      _mm256_castsi256_ps(_mm256_or_si256(u, _mm256_set1_epi32(0x00010000))),
-      nan_mask));
-  res = _mm256_srli_epi32(res, 16);
+  __m256i res = _mm256_srli_epi32(_mm256_add_epi32(u, bias), 16);
 
   return bf16x8{_mm_packus_epi32(internal::lo(res), internal::hi(res))};
 #endif
@@ -1567,27 +1562,17 @@ YNN_ALWAYS_INLINE f32x16 cast(u8x16 a, float) {
 }
 
 YNN_ALWAYS_INLINE bf16x16 cast(f32x16 a, bfloat16) {
-  __m256 nan_mask_lo = _mm256_cmp_ps(lo(a).v, lo(a).v, _CMP_UNORD_Q);
   __m256i u_lo = _mm256_castps_si256(lo(a).v);
   __m256i lsb_lo =
       _mm256_and_si256(_mm256_srli_epi32(u_lo, 16), _mm256_set1_epi32(1));
   __m256i bias_lo = _mm256_add_epi32(_mm256_set1_epi32(0x7FFF), lsb_lo);
-  __m256i res_lo = _mm256_castps_si256(_mm256_blendv_ps(
-      _mm256_castsi256_ps(_mm256_add_epi32(u_lo, bias_lo)),
-      _mm256_castsi256_ps(_mm256_or_si256(u_lo, _mm256_set1_epi32(0x00010000))),
-      nan_mask_lo));
-  __m256i c1 = _mm256_srli_epi32(res_lo, 16);
+  __m256i c1 = _mm256_srli_epi32(_mm256_add_epi32(u_lo, bias_lo), 16);
 
-  __m256 nan_mask_hi = _mm256_cmp_ps(hi(a).v, hi(a).v, _CMP_UNORD_Q);
   __m256i u_hi = _mm256_castps_si256(hi(a).v);
   __m256i lsb_hi =
       _mm256_and_si256(_mm256_srli_epi32(u_hi, 16), _mm256_set1_epi32(1));
   __m256i bias_hi = _mm256_add_epi32(_mm256_set1_epi32(0x7FFF), lsb_hi);
-  __m256i res_hi = _mm256_castps_si256(_mm256_blendv_ps(
-      _mm256_castsi256_ps(_mm256_add_epi32(u_hi, bias_hi)),
-      _mm256_castsi256_ps(_mm256_or_si256(u_hi, _mm256_set1_epi32(0x00010000))),
-      nan_mask_hi));
-  __m256i c2 = _mm256_srli_epi32(res_hi, 16);
+  __m256i c2 = _mm256_srli_epi32(_mm256_add_epi32(u_hi, bias_hi), 16);
 
   const __m256i d = _mm256_packus_epi32(c1, c2);
   return bf16x16{_mm256_permute4x64_epi64(d, _MM_SHUFFLE(3, 1, 2, 0))};

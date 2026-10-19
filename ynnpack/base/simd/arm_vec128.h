@@ -1682,6 +1682,8 @@ YNN_ALWAYS_INLINE f32x4 floor_log2(f32x4 a) {
       vsubq_f32(vreinterpretq_f32_u32(vorrq_u32(vreinterpretq_u32_f32(bias_256),
                                                 vreinterpretq_u32_s32(exp))),
                 bias_383);
+  res = vreinterpretq_f32_u32(
+      vandq_u32(vreinterpretq_u32_f32(res), vdupq_n_u32(~0x00008000)));
   return f32x4{vbslq_f32(is_inf_or_nan, a.v, res)};
 }
 YNN_ALWAYS_INLINE f32x4 exp2_round(f32x4 a) {
@@ -2091,17 +2093,13 @@ YNN_ALWAYS_INLINE f32x8 cast(bf16x8 a, float) {
 #endif
 
 YNN_ALWAYS_INLINE bf16x4 cast(f32x4 a, bfloat16) {
-  uint32x4_t u = vreinterpretq_u32_f32(a.v);
-  uint32x4_t is_nan = vcgtq_u32(vshlq_n_u32(u, 1), vdupq_n_u32(0xFF000000u));
 #ifdef YNN_ARCH_ARM_NEONBF16
-  uint16x4_t rounded = vreinterpret_u16_bf16(vcvt_bf16_f32(a.v));
+  return bf16x4{vreinterpret_u16_bf16(vcvt_bf16_f32(a.v))};
 #else
+  uint32x4_t u = vreinterpretq_u32_f32(a.v);
   uint32x4_t lsb = vandq_u32(vshrq_n_u32(u, 16), vdupq_n_u32(1));
-  uint32x4_t bias = vaddq_u32(vdupq_n_u32(0x7FFF), lsb);
-  uint16x4_t rounded = vshrn_n_u32(vaddq_u32(u, bias), 16);
+  return bf16x4{vaddhn_u32(u, vaddq_u32(vdupq_n_u32(0x7FFF), lsb))};
 #endif
-  uint16x4_t nan_res = vmovn_u32(vorrq_u32(vshrq_n_u32(u, 16), vdupq_n_u32(1)));
-  return bf16x4{vbsl_u16(vmovn_u32(is_nan), nan_res, rounded)};
 }
 
 YNN_ALWAYS_INLINE s16x16 cast(s8x16 b, int16_t) {
@@ -2370,12 +2368,8 @@ YNN_ALWAYS_INLINE f16x16 cast(f8_e5m2x16 a, half) {
 #endif
 YNN_ALWAYS_INLINE f8_e5m2x8 cast(f16x8 a, fp8_e5m2) {
   uint16x8_t u = a.v;
-  uint16x8_t is_nan = vcgtq_u16(vshlq_n_u16(u, 1), vdupq_n_u16(0xF800));
   uint16x8_t lsb = vandq_u16(vshrq_n_u16(u, 8), vdupq_n_u16(1));
-  uint16x8_t bias = vaddq_u16(vdupq_n_u16(0x7F), lsb);
-  uint8x8_t rounded = vshrn_n_u16(vaddq_u16(u, bias), 8);
-  uint8x8_t nan_res = vmovn_u16(vorrq_u16(vshrq_n_u16(u, 8), vdupq_n_u16(1)));
-  return f8_e5m2x8{vbsl_u8(vmovn_u16(is_nan), nan_res, rounded)};
+  return f8_e5m2x8{vaddhn_u16(u, vaddq_u16(vdupq_n_u16(0x7F), lsb))};
 }
 #endif
 

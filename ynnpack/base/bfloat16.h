@@ -23,12 +23,7 @@ class bfloat16 {
   bfloat16() = default;
   bfloat16(float x) {  // NOLINT
     const uint32_t u = bit_cast<uint32_t>(x);
-    if ((u << 1) > 0xFF000000u) {
-      // Handle the denormal case.
-      bits_ = (u >> 16) | 1;
-    } else {
-      bits_ = (u + 0x7FFF + ((u >> 16) & 1)) >> 16;
-    }
+    bits_ = (u + 0x7FFF + ((u >> 16) & 1)) >> 16;
   }
 
   operator float() const {  // NOLINT

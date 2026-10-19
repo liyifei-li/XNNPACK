@@ -1232,14 +1232,14 @@ YNN_ALWAYS_INLINE f32x4 floor_log2(f32x4 a) {
   __m128i exp = _mm_and_si128(_mm_castps_si128(a.v), sign_and_exp_mask);
 
   __m128 infinity = _mm_set1_ps(std::numeric_limits<float>::infinity());
-  __m128 is_inf_or_nan =
-      _mm_or_ps(_mm_cmpeq_ps(a.v, infinity), _mm_cmpunord_ps(a.v, a.v));
+  __m128 is_inf_or_nan = _mm_cmpnlt_ps(a.v, infinity);
 
   exp = _mm_srai_epi32(exp, 8);
 
   __m128 bias_256 = _mm_set1_ps(256.0f);
   __m128 bias_383 = _mm_set1_ps(383.0f);
   __m128 res = _mm_sub_ps(_mm_or_ps(bias_256, _mm_castsi128_ps(exp)), bias_383);
+  res = _mm_and_ps(res, _mm_castsi128_ps(_mm_set1_epi32(~0x00008000)));
   return f32x4{_mm_or_ps(_mm_andnot_ps(is_inf_or_nan, res),
                          _mm_and_ps(is_inf_or_nan, a.v))};
 }

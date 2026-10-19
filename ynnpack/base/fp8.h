@@ -21,9 +21,6 @@ inline uint8_t half_to_e5m2(half h) {
   uint16_t fp16 = h.to_bits();
   uint32_t sign = (fp16 >> 8) & 0x80;
   uint32_t temp = fp16 & 0x7FFF;
-  if (temp >= 0x7C01) {
-    return sign | 0x7F;  // NaN
-  }
   temp += 0x007F + ((temp >> 8) & 1);
   return sign | (temp >> 8);
 }

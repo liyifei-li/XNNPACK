@@ -1210,24 +1210,16 @@ YNN_ALWAYS_INLINE bf16x32 cast(f32x32 a, bfloat16) {
   return bf16x32{(__m512i)_mm512_cvtne2ps_pbh(hi(a).v, lo(a).v)};
 #else
   __m512i u_lo = _mm512_castps_si512(lo(a).v);
-  __mmask16 nan_mask_lo = _mm512_cmp_ps_mask(lo(a).v, lo(a).v, _CMP_UNORD_Q);
   __m512i lsb_lo =
       _mm512_and_si512(_mm512_srli_epi32(u_lo, 16), _mm512_set1_epi32(1));
   __m512i bias_lo = _mm512_add_epi32(_mm512_set1_epi32(0x7FFF), lsb_lo);
-  __m512i res_lo =
-      _mm512_mask_or_epi32(_mm512_add_epi32(u_lo, bias_lo), nan_mask_lo, u_lo,
-                           _mm512_set1_epi32(0x00010000));
-  __m512i c1 = _mm512_srli_epi32(res_lo, 16);
+  __m512i c1 = _mm512_srli_epi32(_mm512_add_epi32(u_lo, bias_lo), 16);
 
   __m512i u_hi = _mm512_castps_si512(hi(a).v);
-  __mmask16 nan_mask_hi = _mm512_cmp_ps_mask(hi(a).v, hi(a).v, _CMP_UNORD_Q);
   __m512i lsb_hi =
       _mm512_and_si512(_mm512_srli_epi32(u_hi, 16), _mm512_set1_epi32(1));
   __m512i bias_hi = _mm512_add_epi32(_mm512_set1_epi32(0x7FFF), lsb_hi);
-  __m512i res_hi =
-      _mm512_mask_or_epi32(_mm512_add_epi32(u_hi, bias_hi), nan_mask_hi, u_hi,
-                           _mm512_set1_epi32(0x00010000));
-  __m512i c2 = _mm512_srli_epi32(res_hi, 16);
+  __m512i c2 = _mm512_srli_epi32(_mm512_add_epi32(u_hi, bias_hi), 16);
 
   const __m512i d = _mm512_packus_epi32(c1, c2);
   const __m512i permutation =
@@ -1241,13 +1233,10 @@ YNN_ALWAYS_INLINE bf16x16 cast(f32x16 a, bfloat16) {
       (__m256i)_mm256_cvtne2ps_pbh(internal::hi(a.v), internal::lo(a.v))};
 #else
   __m512i u = _mm512_castps_si512(a.v);
-  __mmask16 nan_mask = _mm512_cmp_ps_mask(a.v, a.v, _CMP_UNORD_Q);
   __m512i lsb =
       _mm512_and_si512(_mm512_srli_epi32(u, 16), _mm512_set1_epi32(1));
   __m512i bias = _mm512_add_epi32(_mm512_set1_epi32(0x7FFF), lsb);
-  __m512i res = _mm512_mask_or_epi32(_mm512_add_epi32(u, bias), nan_mask, u,
-                                     _mm512_set1_epi32(0x00010000));
-  __m512i c = _mm512_srli_epi32(res, 16);
+  __m512i c = _mm512_srli_epi32(_mm512_add_epi32(u, bias), 16);
   const __m256i d = _mm256_packus_epi32(internal::lo(c), internal::hi(c));
   return bf16x16{_mm256_permute4x64_epi64(d, _MM_SHUFFLE(3, 1, 2, 0))};
 #endif

@@ -54,15 +54,10 @@ TEST(half, round_trip) {
 TEST(bfloat16, round_trip) {
   using info = type_info<bfloat16>;
   ReplicableRandomDevice rng;
-
-  std::uniform_int_distribution<uint32_t> bits_dist{};
-
   for (auto _ : FuzzTest(std::chrono::seconds(1))) {
-    const float f = bit_cast<float>(bits_dist(rng));
+    const float f = random_value<float>(rng);
     const float rounded = static_cast<float>(static_cast<bfloat16>(f));
-    if (std::isnan(f)) {
-      ASSERT_TRUE(std::isnan(rounded));
-    } else if (std::isinf(rounded)) {
+    if (std::isinf(rounded)) {
       // This float rounded to bf16 overflows.
       ASSERT_GE(std::abs(f), bit_cast<float>(uint32_t{0x7F7F8000}));
     } else {
